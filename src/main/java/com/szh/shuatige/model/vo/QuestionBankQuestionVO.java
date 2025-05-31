@@ -1,12 +1,11 @@
 package com.szh.shuatige.model.vo;
 
-import cn.hutool.json.JSONUtil;
-import com.szh.shuatige.model.entity.Question;
 import com.szh.shuatige.model.entity.QuestionBankQuestion;
 import lombok.Data;
 import org.springframework.beans.BeanUtils;
 
 import java.io.Serializable;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -37,12 +36,27 @@ public class QuestionBankQuestionVO implements Serializable {
     private Long userId;
 
     /**
-     * 创建人信息
+     * 创建时间
+     */
+    private Date createTime;
+
+    /**
+     * 更新时间
+     */
+    private Date updateTime;
+
+    /**
+     * 标签列表
+     */
+    private List<String> tagList;
+
+    /**
+     * 创建用户信息
      */
     private UserVO user;
 
     /**
-     * 包装类转对象
+     * 封装类转对象
      *
      * @param questionBankQuestionVO
      * @return
@@ -57,7 +71,7 @@ public class QuestionBankQuestionVO implements Serializable {
     }
 
     /**
-     * 对象转包装类
+     * 对象转封装类
      *
      * @param questionBankQuestion
      * @return
@@ -70,4 +84,5 @@ public class QuestionBankQuestionVO implements Serializable {
         BeanUtils.copyProperties(questionBankQuestion, questionBankQuestionVO);
         return questionBankQuestionVO;
     }
+
 }

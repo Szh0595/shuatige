@@ -32,10 +32,6 @@ public class QuestionBankEditRequest implements Serializable {
      */
     private String picture;
 
-    /**
-     * 标签列表
-     */
-    private List<String> tags;
 
     private static final long serialVersionUID = 1L;
 }

@@ -3,14 +3,12 @@ package com.szh.shuatige.model.dto.questionbankquestion;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.util.List;
 
 /**
- * 创建题库题目关联请求
+ * 移除题目题库关系请求
  */
 @Data
-public class QuestionBankQuestionAddRequest implements Serializable {
-
+public class QuestionBankQuestionRemoveRequest implements Serializable {
     /**
      * 题库 id
      */
@@ -20,7 +18,6 @@ public class QuestionBankQuestionAddRequest implements Serializable {
      * 题目 id
      */
     private Long questionId;
-
 
     private static final long serialVersionUID = 1L;
 }

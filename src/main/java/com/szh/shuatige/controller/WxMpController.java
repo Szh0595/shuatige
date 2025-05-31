@@ -101,6 +101,7 @@ public class WxMpController {
         WxMenuButton wxMenuButton1 = new WxMenuButton();
         wxMenuButton1.setType(MenuButtonType.VIEW);
         wxMenuButton1.setName("主菜单一");
+
         // 子菜单
         WxMenuButton wxMenuButton1SubButton1 = new WxMenuButton();
         wxMenuButton1SubButton1.setType(MenuButtonType.VIEW);
@@ -108,6 +109,7 @@ public class WxMpController {
         wxMenuButton1SubButton1.setUrl(
                 "https://yupi.icu");
         wxMenuButton1.setSubButtons(Collections.singletonList(wxMenuButton1SubButton1));
+
 
         // 菜单二
         WxMenuButton wxMenuButton2 = new WxMenuButton();

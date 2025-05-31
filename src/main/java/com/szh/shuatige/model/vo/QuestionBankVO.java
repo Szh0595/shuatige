@@ -1,13 +1,13 @@
 package com.szh.shuatige.model.vo;
 
-import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.szh.shuatige.model.entity.Question;
 import com.szh.shuatige.model.entity.QuestionBank;
 import lombok.Data;
 import org.springframework.beans.BeanUtils;
 
 import java.io.Serializable;
-import java.util.List;
+import java.util.Date;
 
 /**
  * 题库视图
@@ -36,17 +36,32 @@ public class QuestionBankVO implements Serializable {
     private String picture;
 
     /**
-     * 创建人信息
-     */
-    private UserVO user;
-
-    /**
      * 创建用户 id
      */
     private Long userId;
 
     /**
-     * 包装类转对象
+     * 创建时间
+     */
+    private Date createTime;
+
+    /**
+     * 更新时间
+     */
+    private Date updateTime;
+
+    /**
+     * 创建用户信息
+     */
+    private UserVO user;
+
+    /**
+     * 题库里的题目列表（分页）
+     */
+    Page<Question> questionPage;
+
+    /**
+     * 封装类转对象
      *
      * @param questionBankVO
      * @return
@@ -61,7 +76,7 @@ public class QuestionBankVO implements Serializable {
     }
 
     /**
-     * 对象转包装类
+     * 对象转封装类
      *
      * @param questionBank
      * @return
@@ -74,4 +89,5 @@ public class QuestionBankVO implements Serializable {
         BeanUtils.copyProperties(questionBank, questionBankVO);
         return questionBankVO;
     }
+
 }
