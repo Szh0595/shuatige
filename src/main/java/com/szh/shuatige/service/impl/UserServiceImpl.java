@@ -5,7 +5,9 @@ import static com.szh.shuatige.constant.UserConstant.USER_LOGIN_STATE;
 import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.szh.shuatige.config.RedissonConfig;
 import com.szh.shuatige.constant.CommonConstant;
+import com.szh.shuatige.constant.RedisConstant;
 import com.szh.shuatige.mapper.UserMapper;
 import com.szh.shuatige.service.UserService;
 import com.szh.shuatige.common.ErrorCode;
@@ -16,24 +18,35 @@ import com.szh.shuatige.model.enums.UserRoleEnum;
 import com.szh.shuatige.model.vo.LoginUserVO;
 import com.szh.shuatige.model.vo.UserVO;
 import com.szh.shuatige.utils.SqlUtils;
+
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+
 import lombok.extern.slf4j.Slf4j;
 import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
 import org.apache.commons.lang3.StringUtils;
+import org.checkerframework.checker.units.qual.A;
+import org.redisson.api.RBitSet;
+import org.redisson.api.RedissonClient;
+import org.redisson.client.RedisClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
 /**
  * 用户服务实现
- *
  */
 @Service
 @Slf4j
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
+
+    @Resource
+    private RedissonClient redissonClient;
 
     /**
      * 盐值，混淆密码
@@ -256,6 +269,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String userRole = userQueryRequest.getUserRole();
         String sortField = userQueryRequest.getSortField();
         String sortOrder = userQueryRequest.getSortOrder();
+        String userAccount = userQueryRequest.getUserAccount();
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq(id != null, "id", id);
         queryWrapper.eq(StringUtils.isNotBlank(unionId), "unionId", unionId);
@@ -263,8 +277,61 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         queryWrapper.eq(StringUtils.isNotBlank(userRole), "userRole", userRole);
         queryWrapper.like(StringUtils.isNotBlank(userProfile), "userProfile", userProfile);
         queryWrapper.like(StringUtils.isNotBlank(userName), "userName", userName);
+        queryWrapper.like(StringUtils.isNotBlank(userAccount), "userAccount", userAccount);
         queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
                 sortField);
         return queryWrapper;
+    }
+
+    /**
+     * 添加用户签到
+     *
+     * @param userId
+     * @return
+     */
+    @Override
+    public boolean addUserSignIn(long userId) {
+        //获取当前日期
+        LocalDate data = LocalDate.now();
+        //获取Key
+        String key = RedisConstant.getUserSignInRedisKey(data.getYear(), userId);
+        RBitSet signInBitSet = redissonClient.getBitSet(key);
+        //获取当前是一年中的第几天
+        int dayOfYear = data.getDayOfYear();
+        //判断用户今天是否签到
+        if (!signInBitSet.get(dayOfYear)) {
+            return signInBitSet.set(dayOfYear, true);
+        }
+        //如果已经签到
+        return false;
+    }
+
+    /**
+     * 获取用户签到
+     *
+     * @param year
+     * @param userId
+     * @return
+     */
+    @Override
+    public List<Integer> getUserSignInRecord(Integer year, long userId) {
+        if (year == null) {
+            year = LocalDate.now().getYear();
+        }
+        //获取Key
+        String key = RedisConstant.getUserSignInRedisKey(year, userId);
+        //查询Redis
+        RBitSet signInBitSet = redissonClient.getBitSet(key);
+        //将BitSet加载到内存中，避免多次查询
+        BitSet bitSet = signInBitSet.asBitSet();
+        //统计签到的日期
+        List<Integer> dayList = new ArrayList<>();
+        //从索引 0 开始查找下一个被设置为 1 的位
+        int index = bitSet.nextSetBit(0);
+        while (index >= 0) {
+            dayList.add(index);
+            index = bitSet.nextSetBit(index+1);
+        }
+        return dayList;
     }
 }

@@ -1,6 +1,7 @@
 package com.szh.shuatige.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jd.platform.hotkey.client.callback.JdHotKeyStore;
 import com.szh.shuatige.annotation.AuthCheck;
 import com.szh.shuatige.common.BaseResponse;
 import com.szh.shuatige.common.DeleteRequest;
@@ -18,6 +19,7 @@ import com.szh.shuatige.model.entity.Question;
 import com.szh.shuatige.model.entity.QuestionBank;
 import com.szh.shuatige.model.entity.User;
 import com.szh.shuatige.model.vo.QuestionBankVO;
+import com.szh.shuatige.model.vo.QuestionVO;
 import com.szh.shuatige.service.QuestionBankService;
 import com.szh.shuatige.service.QuestionService;
 import com.szh.shuatige.service.UserService;
@@ -141,6 +143,17 @@ public class QuestionBankController {
         ThrowUtils.throwIf(questionBankQueryRequest==null, ErrorCode.PARAMS_ERROR);
         Long id = questionBankQueryRequest.getId();
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
+        // 生成 key
+        String key = "bank_detail_" + id;
+        // 如果是热 key
+        if (JdHotKeyStore.isHotKey(key)) {
+            // 从本地缓存中获取缓存值
+            Object cachedQuestionBankVO = JdHotKeyStore.get(key);
+            if (cachedQuestionBankVO != null) {
+                // 如果缓存中有值，直接返回缓存的值
+                return ResultUtils.success((QuestionBankVO) cachedQuestionBankVO);
+            }
+        }
         // 查询数据库
         QuestionBank questionBank = questionBankService.getById(id);
         ThrowUtils.throwIf(questionBank == null, ErrorCode.NOT_FOUND_ERROR);
@@ -150,9 +163,14 @@ public class QuestionBankController {
         if (questionBankQueryRequest.isNeedQueryQuestionList()){
             QuestionQueryRequest questionQueryRequest = new QuestionQueryRequest();
             questionQueryRequest.setQuestionBankId(id);
+            questionQueryRequest.setPageSize(questionBankQueryRequest.getPageSize());
+            questionQueryRequest.setCurrent(questionBankQueryRequest.getCurrent());
             Page<Question> questionPage = questionService.listQuestionByPage(questionQueryRequest);
-            questionBankVO.setQuestionPage(questionPage);
+            Page<QuestionVO> questionVOPage = questionService.getQuestionVOPage(questionPage, request);
+            questionBankVO.setQuestionPage(questionVOPage);
         }
+        // 设置本地缓存
+        JdHotKeyStore.smartSet(key, questionBankVO);
         return ResultUtils.success(questionBankVO);
     }
 
@@ -186,7 +204,7 @@ public class QuestionBankController {
         long current = questionBankQueryRequest.getCurrent();
         long size = questionBankQueryRequest.getPageSize();
         // 限制爬虫
-        ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(size > 200, ErrorCode.PARAMS_ERROR);
         // 查询数据库
         Page<QuestionBank> questionBankPage = questionBankService.page(new Page<>(current, size),
                 questionBankService.getQueryWrapper(questionBankQueryRequest));
