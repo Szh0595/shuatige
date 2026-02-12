@@ -1,42 +1,40 @@
 package com.szh.shuatige.service.impl;
 
-import static com.szh.shuatige.constant.UserConstant.USER_LOGIN_STATE;
-
+import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.szh.shuatige.config.RedissonConfig;
+import com.szh.shuatige.common.ErrorCode;
 import com.szh.shuatige.constant.CommonConstant;
 import com.szh.shuatige.constant.RedisConstant;
-import com.szh.shuatige.mapper.UserMapper;
-import com.szh.shuatige.service.UserService;
-import com.szh.shuatige.common.ErrorCode;
 import com.szh.shuatige.exception.BusinessException;
+import com.szh.shuatige.mapper.UserMapper;
 import com.szh.shuatige.model.dto.user.UserQueryRequest;
 import com.szh.shuatige.model.entity.User;
 import com.szh.shuatige.model.enums.UserRoleEnum;
 import com.szh.shuatige.model.vo.LoginUserVO;
 import com.szh.shuatige.model.vo.UserVO;
+import com.szh.shuatige.satoken.DeviceUtils;
+import com.szh.shuatige.service.UserService;
 import com.szh.shuatige.utils.SqlUtils;
+import lombok.extern.slf4j.Slf4j;
+import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
+import org.apache.commons.lang3.StringUtils;
+import org.redisson.api.RBitSet;
+import org.redisson.api.RedissonClient;
+import org.springframework.beans.BeanUtils;
+import org.springframework.stereotype.Service;
+import org.springframework.util.DigestUtils;
 
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.stream.Collectors;
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
 
-import lombok.extern.slf4j.Slf4j;
-import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
-import org.apache.commons.lang3.StringUtils;
-import org.checkerframework.checker.units.qual.A;
-import org.redisson.api.RBitSet;
-import org.redisson.api.RedissonClient;
-import org.redisson.client.RedisClient;
-import org.springframework.beans.BeanUtils;
-import org.springframework.stereotype.Service;
-import org.springframework.util.DigestUtils;
+import static com.szh.shuatige.constant.UserConstant.USER_LOGIN_STATE;
 
 /**
  * 用户服务实现
@@ -116,7 +114,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
         }
         // 3. 记录用户的登录态
-        request.getSession().setAttribute(USER_LOGIN_STATE, user);
+        //request.getSession().setAttribute(USER_LOGIN_STATE, user);
+        StpUtil.login(user.getId(), DeviceUtils.getRequestDevice(request));
+        StpUtil.getSession().set(USER_LOGIN_STATE, user);
         return this.getLoginUserVO(user);
     }
 
@@ -161,14 +161,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public User getLoginUser(HttpServletRequest request) {
         // 先判断是否已登录
-        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
-        User currentUser = (User) userObj;
-        if (currentUser == null || currentUser.getId() == null) {
-            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
-        }
-        // 从数据库查询（追求性能的话可以注释，直接走缓存）
-        long userId = currentUser.getId();
-        currentUser = this.getById(userId);
+        Object loginUserId = StpUtil.getLoginIdDefaultNull();
+//        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
+//        User currentUser = (User) userObj;
+//        if (currentUser == null || currentUser.getId() == null) {
+//            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+//        }
+// 从数据库查询
+//        long userId = currentUser.getId();
+        User currentUser = this.getById((String) loginUserId);
         if (currentUser == null) {
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
@@ -184,14 +185,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public User getLoginUserPermitNull(HttpServletRequest request) {
         // 先判断是否已登录
-        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
-        User currentUser = (User) userObj;
-        if (currentUser == null || currentUser.getId() == null) {
-            return null;
+        Object loginUserId = StpUtil.getLoginIdDefaultNull();
+//        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
+//        User currentUser = (User) userObj;
+//        if (currentUser == null || currentUser.getId() == null) {
+//            return null;
+//        }
+        if (loginUserId == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
-        // 从数据库查询（追求性能的话可以注释，直接走缓存）
-        long userId = currentUser.getId();
-        return this.getById(userId);
+        // 从数据库查询(为确保数据及时更新，走数据库查询，若要追求性能，可尝试走缓存)
+        return this.getById((String) loginUserId);
     }
 
     /**
@@ -203,7 +207,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public boolean isAdmin(HttpServletRequest request) {
         // 仅管理员可查询
-        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
+        Object userObj = StpUtil.getSession().get(USER_LOGIN_STATE);
+        //Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
         User user = (User) userObj;
         return isAdmin(user);
     }
@@ -224,7 +229,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "未登录");
         }
         // 移除登录态
-        request.getSession().removeAttribute(USER_LOGIN_STATE);
+        StpUtil.logout();
+        //request.getSession().removeAttribute(USER_LOGIN_STATE);
         return true;
     }
 
@@ -330,7 +336,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         int index = bitSet.nextSetBit(0);
         while (index >= 0) {
             dayList.add(index);
-            index = bitSet.nextSetBit(index+1);
+            index = bitSet.nextSetBit(index + 1);
         }
         return dayList;
     }

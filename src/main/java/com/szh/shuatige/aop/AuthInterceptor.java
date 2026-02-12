@@ -1,15 +1,13 @@
 package com.szh.shuatige.aop;
 
 import com.szh.shuatige.annotation.AuthCheck;
+import com.szh.shuatige.common.ErrorCode;
 import com.szh.shuatige.exception.BusinessException;
 import com.szh.shuatige.model.entity.User;
-import com.szh.shuatige.service.UserService;
-import com.szh.shuatige.common.ErrorCode;
 import com.szh.shuatige.model.enums.UserRoleEnum;
+import com.szh.shuatige.service.UserService;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
-import org.aspectj.lang.annotation.Aspect;
-import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -21,8 +19,8 @@ import javax.servlet.http.HttpServletRequest;
  * 权限校验 AOP
  *
  */
-@Aspect
-@Component
+//@Aspect
+//@Component
 public class AuthInterceptor {
 
     @Resource
